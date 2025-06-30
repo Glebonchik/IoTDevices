@@ -4,6 +4,7 @@ import (
 	"IoTDevicesGenerator/internal/broker"
 	"IoTDevicesGenerator/internal/domain"
 	"IoTDevicesGenerator/internal/usecase"
+	"IoTDevicesGenerator/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -14,6 +15,11 @@ import (
 
 func main() {
 
+	cfg, err := config.LoadCfg()
+	if err != nil {
+		log.Fatalf("Unable to load cfg file: %v", err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -22,13 +28,13 @@ func main() {
 
 	//потом сюда конфиг
 	brokerUrl := fmt.Sprintf("amqp://%s:%s@%s:%s/",
-		"guest",
-		"guest",
-		"localhost",
-		"5672",
+		cfg.Broker.Login,
+		cfg.Broker.Password,
+		cfg.Broker.Host,
+		cfg.Broker.Port,
 	)
 
-	rabbitmq, err := broker.NewBrokerConn(brokerUrl, "io_devices")
+	rabbitmq, err := broker.NewBrokerConn(brokerUrl, cfg.Broker.QueueName)
 
 	if err != nil {
 		log.Fatal("Unable to reach broker: ", err)
@@ -50,9 +56,9 @@ func main() {
 		case <-ticker.C:
 			data := domain.GenerateData()
 			if err := producer.Produce(ctx, data); err != nil {
-				log.Printf("Ошибка публикации: %v", err)
+				log.Printf("Producer error: %v", err)
 			} else {
-				log.Printf("Отправлены данные: %v", data)
+				log.Printf("Data sent: %v", data)
 			}
 		}
 	}
